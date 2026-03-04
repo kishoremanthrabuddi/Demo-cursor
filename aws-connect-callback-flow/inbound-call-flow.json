@@ -1,0 +1,269 @@
+{
+  "Version": "2019-10-30",
+  "Type": "contactFlow",
+  "StartAction": "12345678-1234-1234-1234-123456789000",
+  "Metadata": {
+    "entryPointPosition": {
+      "x": 20,
+      "y": 20
+    },
+    "ActionMetadata": {
+      "12345678-1234-1234-1234-123456789000": {
+        "position": {
+          "x": 20,
+          "y": 20
+        }
+      },
+      "12345678-1234-1234-1234-123456789001": {
+        "position": {
+          "x": 200,
+          "y": 20
+        }
+      },
+      "12345678-1234-1234-1234-123456789002": {
+        "position": {
+          "x": 400,
+          "y": 20
+        }
+      },
+      "12345678-1234-1234-1234-123456789003": {
+        "position": {
+          "x": 600,
+          "y": 20
+        }
+      },
+      "12345678-1234-1234-1234-123456789004": {
+        "position": {
+          "x": 400,
+          "y": 200
+        }
+      },
+      "12345678-1234-1234-1234-123456789005": {
+        "position": {
+          "x": 600,
+          "y": 200
+        }
+      },
+      "12345678-1234-1234-1234-123456789006": {
+        "position": {
+          "x": 800,
+          "y": 200
+        }
+      },
+      "12345678-1234-1234-1234-123456789007": {
+        "position": {
+          "x": 400,
+          "y": 400
+        }
+      },
+      "12345678-1234-1234-1234-123456789008": {
+        "position": {
+          "x": 600,
+          "y": 400
+        }
+      },
+      "12345678-1234-1234-1234-123456789009": {
+        "position": {
+          "x": 800,
+          "y": 400
+        }
+      }
+    }
+  },
+  "Actions": [
+    {
+      "Identifier": "12345678-1234-1234-1234-123456789000",
+      "Type": "MessageParticipant",
+      "Parameters": {
+        "Text": "Thank you for calling our support center. Please hold while we check our business hours."
+      },
+      "Transitions": {
+        "NextAction": "12345678-1234-1234-1234-123456789001",
+        "Errors": [
+          {
+            "NextAction": "12345678-1234-1234-1234-123456789009",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Identifier": "12345678-1234-1234-1234-123456789001",
+      "Type": "CheckHoursOfOperation",
+      "Parameters": {
+        "HoursOfOperationId": "arn:aws:connect:us-west-2:123456789012:instance/00000000-0000-0000-0000-000000000000/operating-hours/11111111-1111-1111-1111-111111111111"
+      },
+      "Transitions": {
+        "NextAction": "12345678-1234-1234-1234-123456789002",
+        "Conditions": [
+          {
+            "NextAction": "12345678-1234-1234-1234-123456789004",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "False"
+              ]
+            }
+          }
+        ],
+        "Errors": [
+          {
+            "NextAction": "12345678-1234-1234-1234-123456789009",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Identifier": "12345678-1234-1234-1234-123456789002",
+      "Type": "GetUserInput",
+      "Parameters": {
+        "Text": "Welcome! We're here to help. Press 1 to request a callback, Press 2 to wait in queue, or Press 3 to leave a voicemail.",
+        "MaxDigits": 1,
+        "Timeout": 5,
+        "TimeoutAudio": "Please make a selection using your keypad."
+      },
+      "Transitions": {
+        "NextAction": "12345678-1234-1234-1234-123456789009",
+        "Conditions": [
+          {
+            "NextAction": "12345678-1234-1234-1234-123456789003",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "1"
+              ]
+            }
+          },
+          {
+            "NextAction": "12345678-1234-1234-1234-123456789005",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "2"
+              ]
+            }
+          },
+          {
+            "NextAction": "12345678-1234-1234-1234-123456789008",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "3"
+              ]
+            }
+          }
+        ],
+        "Errors": [
+          {
+            "NextAction": "12345678-1234-1234-1234-123456789009",
+            "ErrorType": "InputTimeLimitExceeded"
+          },
+          {
+            "NextAction": "12345678-1234-1234-1234-123456789009",
+            "ErrorType": "NoMatchingCondition"
+          }
+        ]
+      }
+    },
+    {
+      "Identifier": "12345678-1234-1234-1234-123456789003",
+      "Type": "InvokeExternalResource",
+      "Parameters": {
+        "FunctionArn": "arn:aws:lambda:us-west-2:123456789012:function:CallbackScheduler",
+        "InvocationTimeLimitSeconds": 8,
+        "ResponseValidation": {
+          "ResponseType": "JSON"
+        }
+      },
+      "Transitions": {
+        "NextAction": "12345678-1234-1234-1234-123456789006",
+        "Errors": [
+          {
+            "NextAction": "12345678-1234-1234-1234-123456789009",
+            "ErrorType": "Lambda.Unknown"
+          },
+          {
+            "NextAction": "12345678-1234-1234-1234-123456789009",
+            "ErrorType": "Lambda.FunctionException"
+          },
+          {
+            "NextAction": "12345678-1234-1234-1234-123456789009",
+            "ErrorType": "Lambda.TooManyRequestsException"
+          }
+        ]
+      }
+    },
+    {
+      "Identifier": "12345678-1234-1234-1234-123456789004",
+      "Type": "MessageParticipant",
+      "Parameters": {
+        "Text": "Thank you for calling. We are currently closed. Our business hours are Monday through Friday, 9 AM to 5 PM. Please call back during our business hours or visit our website for self-service options."
+      },
+      "Transitions": {
+        "NextAction": "12345678-1234-1234-1234-123456789009"
+      }
+    },
+    {
+      "Identifier": "12345678-1234-1234-1234-123456789005",
+      "Type": "SetWorkingQueue",
+      "Parameters": {
+        "QueueId": "arn:aws:connect:us-west-2:123456789012:instance/00000000-0000-0000-0000-000000000000/queue/22222222-2222-2222-2222-222222222222"
+      },
+      "Transitions": {
+        "NextAction": "12345678-1234-1234-1234-123456789007",
+        "Errors": [
+          {
+            "NextAction": "12345678-1234-1234-1234-123456789009",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Identifier": "12345678-1234-1234-1234-123456789006",
+      "Type": "MessageParticipant",
+      "Parameters": {
+        "Text": "Thank you for requesting a callback. We will call you back within the next business hour at the number you called from. You will receive a confirmation via SMS if you provided your mobile number. Have a great day!"
+      },
+      "Transitions": {
+        "NextAction": "12345678-1234-1234-1234-123456789009"
+      }
+    },
+    {
+      "Identifier": "12345678-1234-1234-1234-123456789007",
+      "Type": "TransferToQueue",
+      "Parameters": {
+        "Text": "You are now being connected to the next available agent. Your estimated wait time is 3 minutes."
+      },
+      "Transitions": {
+        "NextAction": "12345678-1234-1234-1234-123456789009",
+        "Errors": [
+          {
+            "NextAction": "12345678-1234-1234-1234-123456789003",
+            "ErrorType": "QueueAtCapacity"
+          },
+          {
+            "NextAction": "12345678-1234-1234-1234-123456789009",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Identifier": "12345678-1234-1234-1234-123456789008",
+      "Type": "MessageParticipant",
+      "Parameters": {
+        "Text": "Please leave your name, phone number, and a brief message after the beep. We will return your call within one business day."
+      },
+      "Transitions": {
+        "NextAction": "12345678-1234-1234-1234-123456789009"
+      }
+    },
+    {
+      "Identifier": "12345678-1234-1234-1234-123456789009",
+      "Type": "DisconnectParticipant",
+      "Parameters": {}
+    }
+  ]
+}

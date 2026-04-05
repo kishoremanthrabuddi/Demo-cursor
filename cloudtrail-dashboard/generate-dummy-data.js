@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const zlib = require('zlib');
 
 const ACCOUNT_ID = '123456789012';
 const REGIONS = ['us-east-1', 'us-west-2', 'eu-west-1'];
@@ -148,13 +149,17 @@ for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
   const data = generateDay(d);
   totalEvents += data.Records.length;
 
-  const filename = `${ACCOUNT_ID}_CloudTrail_${region}_${year}${month}${day}T0000Z_${crypto.randomUUID().slice(0, 8)}.json`;
-  fs.writeFileSync(path.join(dirPath, filename), JSON.stringify(data));
+  const jsonStr = JSON.stringify(data);
+  const gzipped = zlib.gzipSync(Buffer.from(jsonStr));
 
-  console.log(`Generated ${data.Records.length} events for ${year}-${month}-${day} (${region})`);
+  const filename = `${ACCOUNT_ID}_CloudTrail_${region}_${year}${month}${day}T0000Z_${crypto.randomUUID().slice(0, 8)}.json.gz`;
+  fs.writeFileSync(path.join(dirPath, filename), gzipped);
+
+  console.log(`Generated ${data.Records.length} events for ${year}-${month}-${day} (${region}) [gzipped]`);
 }
 
 console.log(`\nDone! Total: ${totalEvents} events across ${Math.ceil((endDate - startDate) / 86400000)} days`);
+console.log(`Files are gzipped (.json.gz) — matches real CloudTrail format`);
 console.log(`Output: ${outputDir}/`);
 console.log(`\nNext steps:`);
 console.log(`1. aws s3 rm s3://demo-cloudrail-dashboard-logs/ --recursive`);

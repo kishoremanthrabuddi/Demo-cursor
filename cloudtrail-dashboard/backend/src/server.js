@@ -12,7 +12,20 @@ const errorHandler = require('./middleware/errorHandler');
 
 const app = express();
 
-app.use(helmet());
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'"],
+        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+        fontSrc: ["'self'", "https://fonts.gstatic.com"],
+        imgSrc: ["'self'", "data:"],
+        connectSrc: ["'self'"],
+      },
+    },
+  })
+);
 app.use(cors({ origin: config.server.env === 'production' ? process.env.FRONTEND_URL : '*' }));
 app.use(morgan(config.server.env === 'production' ? 'combined' : 'dev'));
 app.use(express.json());

@@ -1,6 +1,5 @@
 const fs = require('fs');
 const path = require('path');
-const zlib = require('zlib');
 
 const ACCOUNT_ID = '123456789012';
 const REGIONS = ['us-east-1', 'us-west-2', 'eu-west-1'];
@@ -58,75 +57,49 @@ function generateEvent(timestamp, region) {
   const hasError = Math.random() < 0.08;
   const isConsoleLogin = svcDef.source === 'signin.amazonaws.com';
 
-  let errorCode = null;
-  let errorMessage = null;
-  if (hasError && !isConsoleLogin) {
-    errorCode = rand(ERROR_CODES);
-    errorMessage = `User: ${user.arn || 'unknown'} is not authorized to perform: ${eventName}`;
-  }
-
   const event = {
-    eventVersion: '1.08',
-    userIdentity: {
+    eventversion: '1.08',
+    useridentity: {
       type: user.type,
-      principalId: user.principalid || '',
+      principalid: user.principalid || '',
       arn: user.arn || '',
-      accountId: ACCOUNT_ID,
-      accessKeyId: 'ASIA' + Array.from({ length: 16 }, () => 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'[randInt(0, 31)]).join(''),
-      userName: user.username,
+      accountid: ACCOUNT_ID,
+      invokedby: user.invokedby || '',
+      accesskeyid: 'ASIA' + Array.from({ length: 16 }, () => 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'[randInt(0, 31)]).join(''),
+      username: user.username || '',
     },
-    eventTime: timestamp.toISOString().replace('.000Z', 'Z'),
-    eventSource: svcDef.source,
-    eventName: eventName,
-    awsRegion: region,
-    sourceIPAddress: ip,
-    userAgent: ua,
-    requestParameters: JSON.stringify({ example: 'param' }),
-    responseElements: hasError ? null : JSON.stringify({ result: 'success' }),
-    requestID: crypto.randomUUID(),
-    eventID: crypto.randomUUID(),
-    readOnly: ['Describe', 'List', 'Get'].some(p => eventName.startsWith(p)) ? 'true' : 'false',
-    eventType: 'AwsApiCall',
-    recipientAccountId: ACCOUNT_ID,
+    eventtime: timestamp.toISOString().replace('.000Z', 'Z'),
+    eventsource: svcDef.source,
+    eventname: eventName,
+    awsregion: region,
+    sourceipaddress: ip,
+    useragent: ua,
+    errorcode: '',
+    errormessage: '',
+    requestparameters: JSON.stringify({ example: 'param' }),
+    responseelements: JSON.stringify({ result: 'success' }),
+    requestid: crypto.randomUUID(),
+    eventid: crypto.randomUUID(),
+    readonly: ['Describe', 'List', 'Get'].some(p => eventName.startsWith(p)) ? 'true' : 'false',
+    eventtype: 'AwsApiCall',
+    recipientaccountid: ACCOUNT_ID,
   };
-
-  if (user.invokedby) {
-    event.userIdentity.invokedBy = user.invokedby;
-  }
 
   if (isConsoleLogin) {
     const loginFailed = Math.random() < 0.15;
     if (loginFailed) {
-      event.errorCode = 'Failed';
-      event.errorMessage = 'No username found in supplied account';
-      event.responseElements = JSON.stringify({ ConsoleLogin: 'Failure' });
+      event.errorcode = 'Failed';
+      event.errormessage = 'No username found in supplied account';
+      event.responseelements = JSON.stringify({ ConsoleLogin: 'Failure' });
     } else {
-      event.responseElements = JSON.stringify({ ConsoleLogin: 'Success' });
+      event.responseelements = JSON.stringify({ ConsoleLogin: 'Success' });
     }
   } else if (hasError) {
-    event.errorCode = errorCode;
-    event.errorMessage = errorMessage;
+    event.errorcode = rand(ERROR_CODES);
+    event.errormessage = `User: ${user.arn || 'unknown'} is not authorized to perform: ${eventName}`;
   }
 
   return event;
-}
-
-function generateDay(date) {
-  const records = [];
-  const eventsPerDay = randInt(150, 400);
-  const region = rand(REGIONS);
-
-  for (let i = 0; i < eventsPerDay; i++) {
-    const hour = randInt(0, 23);
-    const minute = randInt(0, 59);
-    const second = randInt(0, 59);
-    const ts = new Date(date);
-    ts.setUTCHours(hour, minute, second, 0);
-    records.push(generateEvent(ts, region));
-  }
-
-  records.sort((a, b) => a.eventTime.localeCompare(b.eventTime));
-  return { Records: records };
 }
 
 const outputDir = path.join(__dirname, 'cloudtrail-data');
@@ -136,31 +109,32 @@ fs.mkdirSync(outputDir, { recursive: true });
 const startDate = new Date('2026-03-15');
 const endDate = new Date('2026-04-05');
 let totalEvents = 0;
+const allLines = [];
 
 for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
-  const year = d.getUTCFullYear();
-  const month = String(d.getUTCMonth() + 1).padStart(2, '0');
-  const day = String(d.getUTCDate()).padStart(2, '0');
+  const eventsPerDay = randInt(150, 400);
   const region = rand(REGIONS);
 
-  const dirPath = path.join(outputDir, `AWSLogs/${ACCOUNT_ID}/CloudTrail/${region}/${year}/${month}/${day}`);
-  fs.mkdirSync(dirPath, { recursive: true });
-
-  const data = generateDay(d);
-  totalEvents += data.Records.length;
-
-  const jsonStr = JSON.stringify(data);
-  const gzipped = zlib.gzipSync(Buffer.from(jsonStr));
-
-  const filename = `${ACCOUNT_ID}_CloudTrail_${region}_${year}${month}${day}T0000Z_${crypto.randomUUID().slice(0, 8)}.json.gz`;
-  fs.writeFileSync(path.join(dirPath, filename), gzipped);
-
-  console.log(`Generated ${data.Records.length} events for ${year}-${month}-${day} (${region}) [gzipped]`);
+  for (let i = 0; i < eventsPerDay; i++) {
+    const ts = new Date(d);
+    ts.setUTCHours(randInt(0, 23), randInt(0, 59), randInt(0, 59), 0);
+    allLines.push(JSON.stringify(generateEvent(ts, region)));
+    totalEvents++;
+  }
 }
 
-console.log(`\nDone! Total: ${totalEvents} events across ${Math.ceil((endDate - startDate) / 86400000)} days`);
-console.log(`Files are gzipped (.json.gz) — matches real CloudTrail format`);
+const chunkSize = 1000;
+for (let i = 0; i < allLines.length; i += chunkSize) {
+  const chunk = allLines.slice(i, i + chunkSize);
+  const fileNum = String(Math.floor(i / chunkSize) + 1).padStart(3, '0');
+  const filePath = path.join(outputDir, `events-${fileNum}.json`);
+  fs.writeFileSync(filePath, chunk.join('\n') + '\n');
+  console.log(`Written ${chunk.length} events to events-${fileNum}.json`);
+}
+
+console.log(`\nDone! Total: ${totalEvents} events in ${Math.ceil(allLines.length / chunkSize)} files`);
+console.log(`Format: newline-delimited JSON (one event per line)`);
 console.log(`Output: ${outputDir}/`);
-console.log(`\nNext steps:`);
+console.log(`\nNext steps on EC2:`);
 console.log(`1. aws s3 rm s3://demo-cloudrail-dashboard-logs/ --recursive`);
-console.log(`2. aws s3 sync ${outputDir}/ s3://demo-cloudrail-dashboard-logs/cloudtrail/`);
+console.log(`2. aws s3 sync ${outputDir}/ s3://demo-cloudrail-dashboard-logs/data/`);

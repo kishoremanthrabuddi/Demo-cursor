@@ -27,9 +27,17 @@ app.use('/api', limiter);
 
 app.use('/api', apiRoutes);
 
+const path = require('path');
+const frontendDist = path.join(__dirname, '..', '..', 'frontend', 'dist');
+app.use(express.static(frontendDist));
+app.get('*', (req, res, next) => {
+  if (req.path.startsWith('/api')) return next();
+  res.sendFile(path.join(frontendDist, 'index.html'));
+});
+
 app.use(errorHandler);
 
-app.listen(config.server.port, () => {
+app.listen(config.server.port, '0.0.0.0', () => {
   console.log(
     `CloudTrail Dashboard API running on port ${config.server.port} [${config.server.env}]`
   );
